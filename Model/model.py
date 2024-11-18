@@ -1,6 +1,3 @@
-from math import tan
-
-
 class Model:
     def __init__(self, dt):
         self.dt = dt  # Размер шага в модели в секундах
@@ -23,4 +20,4 @@ class Model:
         return 0.09556781 / (self.P + 4.19694606) - 0.02272167 if is_drain else 0
 
     def engine(self, percent, is_engine):
-        return (0.02865982 * percent + 0.00110959) / 60 if is_engine else 0
+        return 0.02865982 * percent / 60 if is_engine else 0
