@@ -1,16 +1,12 @@
-from model import Model
-import matplotlib.pyplot as plt
+from controller import Controller
+# import matplotlib.pyplot as plt
 
 
 def main():
-    model = Model(1)
-    model.P = 0
-    for _ in range(2000):
-        model.update(100)
-    plt.plot(model.t_hist, model.P_hist)
-    plt.show()
-    plt.plot(model.t_hist, model.hz_hist)
-    plt.show()
+    controller = Controller(502.38, 100.456, 627.975, 5)
+    controller.cycle_mode(10, 1, 10)
+    controller.display_P()
+    controller.display_hz()
 
 
 if __name__ == "__main__":
