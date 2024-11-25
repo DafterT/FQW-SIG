@@ -18,3 +18,8 @@ class Model:
 
     def engine(self, percent, is_engine):
         return 0.02865982 * percent / 60 if is_engine else 0
+
+    def clear(self):
+        self.t = 0
+        self.P = 0
+        self.P_noise = 0

@@ -43,8 +43,42 @@ class Controller:
             target = P_max
             self.do_step(self.model.P_noise, target)
             t += self.d_t
-            
+    
+    def static_mode(self, P_max, v_filling, t_1, t_2, P_interim, d_P = 5):
+        t = 0
+        target = 0
+        start_P = 0
+        end_P = 0
 
+        while end_P != P_max:
+            start_P = end_P
+            end_P = start_P + d_P
+            if end_P > P_max:
+                end_P = P_max
+            t_filling = (end_P - self.model.P_noise) / (v_filling / 60)
+            self.PID.clear()
+            t = 0
+
+            while self.model.P_noise <= end_P - 0.1:
+                t += self.d_t
+                target = t * (end_P - start_P) / t_filling + start_P
+                if target > end_P:
+                    target = end_P
+                self.do_step(self.model.P_noise, target)
+                
+            self.PID.clear()
+            t = 0
+            t_control = t_1 * 60
+            while t <= t_control:
+                t += self.d_t
+                target = end_P
+                t_control = t_1 * 60
+                self.do_step(self.model.P_noise, target)
+                
+                if end_P >= P_interim:
+                    t_control = t_2 * 60
+
+        
     def display_P(self):
         plt.plot(self.t_hist, self.P_hist, label='Давление')
         plt.plot(self.t_hist, self.P_noise_hist, label='Давление + шум')
@@ -55,3 +89,13 @@ class Controller:
     def display_hz(self):
         plt.plot(self.t_hist, self.hz_hist)
         plt.show()
+        
+    def clear_controller(self):
+        self.PID.clear()
+        self.model.clear()
+        self.t = 0
+        self.hz_hist = [0]
+        self.P_hist = [0]
+        self.P_noise_hist = [0]
+        self.target_hist = [0]
+        self.t_hist = [0]
