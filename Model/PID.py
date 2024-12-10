@@ -17,10 +17,10 @@ class PID:
         self.derivative = (self.error - self.previous_error) / self.d_t
         self.output = self.Kp * self.error + self.Ki * self.integral + self.Kd * self.derivative
         self.previous_error = self.error
-        self.output = max(min(self.output, 100), 25)
-        if self.error < -0.5:
-            self.output = 0
-        return self.output
+        out = max(min(self.output, 100), 25)
+        if self.output < 12.5:
+            out = 0
+        return out
 
     def clear(self):
         self.error = 0.0

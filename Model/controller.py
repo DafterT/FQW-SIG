@@ -4,9 +4,10 @@ import matplotlib.pyplot as plt
 
 class Controller:
     
-    def __init__(self, kP, kI, kD, d_t=1):
-        self.model = Model(d_t)
-        self.PID = PID(kP, kI, kD, d_t)
+    def __init__(self, speed_coef, P_coef, d_t=1, activate_noise=True):
+        self.model = Model(d_t, activate_noise)
+        self.PID_speed = PID(*speed_coef, d_t)
+        self.PID_P = PID(*P_coef, d_t)
         self.d_t = d_t
         self.t = 0
         self.hz_hist = [0]
@@ -14,80 +15,80 @@ class Controller:
         self.P_noise_hist = [0]
         self.target_hist = [0]
         self.t_hist = [0]
+        self.P_vals = [self.model.P_noise] * 10
+        self.average_speed = 0
         
-    def do_step(self, current, target):
-        percent = self.PID.step(target, current)
-        self.model.update(percent)
+    def do_step(self, PID, current, target, is_drain=True):
+        percent = PID.step(target, current)
+        self.model.update(percent, is_drain)
         self.t += self.d_t
         self.hz_hist.append(percent)
         self.P_hist.append(self.model.P)
         self.P_noise_hist.append(self.model.P_noise)
-        self.target_hist.append(target)
+        self.target_hist.append(self.average_speed * 60)
         self.t_hist.append(self.t)
+        
+        self.P_vals = [self.model.P_noise] + self.P_vals[:-1]
+        speed_mas = []
+        self.average_speed = 0
+        for i, j in zip(self.P_vals[:5], self.P_vals[5:]):
+            speed_mas.append((i - j) / 5)
+        self.average_speed = sum(speed_mas) / len(speed_mas)
 
-    def cycle_mode(self, P_max, v_filling, time):
-        t = 0
-        start_P = self.model.P_noise
-        t_filling = (P_max - start_P) / (v_filling / 60)
+    def cycle_mode(self, P_max, v_filling, time, is_drain=True):
+
+        while self.model.P_noise <= P_max:
+            self.do_step(self.PID_speed, self.average_speed * 60, v_filling, is_drain)
         
-        while self.model.P <= P_max - 0.1:
-            target = t * (P_max - start_P) / t_filling + start_P
-            target = min(target, P_max)
-            self.do_step(self.model.P_noise, target)
-            t += self.d_t
-        
-        self.PID.clear()
+        self.PID_speed.clear()
         
         t = 0
         while t < time * 60:
-            target = P_max
-            self.do_step(self.model.P_noise, target)
+            self.do_step(self.PID_P, self.model.P_noise, P_max, is_drain)
             t += self.d_t
+        self.PID_P.clear()
     
-    def static_mode(self, P_max, v_filling, t_1, t_2, P_interim, d_P = 5):
+    def static_mode(self, P_max, v_filling, t_1, t_2, P_interim, d_P = 5, is_drain=True):
         t = 0
-        target = 0
-        start_P = 0
-        end_P = 0
+        start_P = self.model.P_noise
+        end_P = self.model.P_noise
 
         while end_P != P_max:
             start_P = end_P
             end_P = start_P + d_P
             if end_P > P_max:
                 end_P = P_max
-            t_filling = (end_P - self.model.P_noise) / (v_filling / 60)
-            self.PID.clear()
             t = 0
 
-            while self.model.P_noise <= end_P - 0.1:
+            while self.model.P_noise <= end_P:
                 t += self.d_t
-                target = t * (end_P - start_P) / t_filling + start_P
-                if target > end_P:
-                    target = end_P
-                self.do_step(self.model.P_noise, target)
-                
-            self.PID.clear()
+                self.do_step(self.PID_speed, self.average_speed * 60, v_filling, is_drain)
+            
+            self.PID_speed.clear()
+            
             t = 0
             t_control = t_1 * 60
+            if end_P >= P_interim:
+                t_control = t_2 * 60
             while t <= t_control:
+                self.do_step(self.PID_P, self.model.P_noise, end_P, is_drain)
                 t += self.d_t
-                target = end_P
-                t_control = t_1 * 60
-                self.do_step(self.model.P_noise, target)
-                
-                if end_P >= P_interim:
-                    t_control = t_2 * 60
+            self.PID_P.clear()
 
         
     def display_P(self):
         plt.plot(self.t_hist, self.P_hist, label='Давление')
         plt.plot(self.t_hist, self.P_noise_hist, label='Давление + шум')
-        plt.plot(self.t_hist, self.target_hist, label='Целевое давление')
         plt.legend()
+        plt.grid()
         plt.show()
     
     def display_hz(self):
         plt.plot(self.t_hist, self.hz_hist)
+        plt.show()
+        
+    def display_speed(self):
+        plt.plot(self.t_hist, self.target_hist, label='Целевое давление')
         plt.show()
         
     def clear_controller(self):
