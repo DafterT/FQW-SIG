@@ -2,8 +2,10 @@ from model import Model
 from PID import PID
 import matplotlib.pyplot as plt
 
+WINDOW_SPEED = 50
+
 class Controller:
-    
+
     def __init__(self, speed_coef, P_coef, d_t=1, activate_noise=True):
         self.model = Model(d_t, activate_noise)
         self.PID_speed = PID(*speed_coef, d_t)
@@ -15,9 +17,9 @@ class Controller:
         self.P_noise_hist = [0]
         self.target_hist = [0]
         self.t_hist = [0]
-        self.P_vals = [self.model.P_noise] * 10
+        self.P_vals = [self.model.P_noise] * WINDOW_SPEED
         self.average_speed = 0
-        
+
     def do_step(self, PID, current, target, is_drain=True):
         percent = PID.step(target, current)
         self.model.update(percent, is_drain)
@@ -26,24 +28,23 @@ class Controller:
         self.P_hist.append(self.model.P)
         self.P_noise_hist.append(self.model.P_noise)
         self.target_hist.append(self.average_speed * 60)
-        self.t_hist.append(self.t)
+        self.t_hist.append(self.t / 1000)
         
         self.P_vals = [self.model.P_noise] + self.P_vals[:-1]
         speed_mas = []
         self.average_speed = 0
-        for i, j in zip(self.P_vals[:5], self.P_vals[5:]):
-            speed_mas.append((i - j) / 5)
+        for i, j in zip(self.P_vals[:(WINDOW_SPEED // 2)], self.P_vals[(WINDOW_SPEED) // 2:]):
+            speed_mas.append((i - j) / (WINDOW_SPEED // 2) * 1000 / self.d_t)
         self.average_speed = sum(speed_mas) / len(speed_mas)
 
     def cycle_mode(self, P_max, v_filling, time, is_drain=True):
-
         while self.model.P_noise <= P_max:
+            counter += 1
             self.do_step(self.PID_speed, self.average_speed * 60, v_filling, is_drain)
-        
         self.PID_speed.clear()
         
         t = 0
-        while t < time * 60:
+        while t < time * 60 * 1000:
             self.do_step(self.PID_P, self.model.P_noise, P_max, is_drain)
             t += self.d_t
         self.PID_P.clear()
@@ -58,18 +59,16 @@ class Controller:
             end_P = start_P + d_P
             if end_P > P_max:
                 end_P = P_max
-            t = 0
 
             while self.model.P_noise <= end_P:
-                t += self.d_t
                 self.do_step(self.PID_speed, self.average_speed * 60, v_filling, is_drain)
             
             self.PID_speed.clear()
             
             t = 0
-            t_control = t_1 * 60
+            t_control = t_1 * 60 * 1000
             if end_P >= P_interim:
-                t_control = t_2 * 60
+                t_control = t_2 * 60 * 1000
             while t <= t_control:
                 self.do_step(self.PID_P, self.model.P_noise, end_P, is_drain)
                 t += self.d_t
