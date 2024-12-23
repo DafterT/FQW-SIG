@@ -6,7 +6,7 @@ WINDOW_SPEED = 50
 
 class Controller:
 
-    def __init__(self, speed_coef, P_coef, d_t=1, activate_noise=True):
+    def __init__(self, speed_coef, P_coef, d_t=100, activate_noise=True):
         self.model = Model(d_t, activate_noise)
         self.PID_speed = PID(*speed_coef, d_t)
         self.PID_P = PID(*P_coef, d_t)
@@ -39,7 +39,6 @@ class Controller:
 
     def cycle_mode(self, P_max, v_filling, time, is_drain=True):
         while self.model.P_noise <= P_max:
-            counter += 1
             self.do_step(self.PID_speed, self.average_speed * 60, v_filling, is_drain)
         self.PID_speed.clear()
         
