@@ -163,3 +163,4 @@ cython_debug/
 */~*.docx
 ~*.docx
 *.tmp
+.codegpt
