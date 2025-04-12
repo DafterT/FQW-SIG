@@ -18,7 +18,7 @@ class PID:
         self.output = self.Kp * self.error + self.Ki * self.integral + self.Kd * self.derivative
         self.previous_error = self.error
         out = max(min(self.output, 100), 25)
-        if self.output < 12.5:
+        if self.output < 25:
             out = 0
         return out
 
