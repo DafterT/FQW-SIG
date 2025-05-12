@@ -75,3 +75,5 @@ class StatMode(BaseFrame):
         speed_value = self.get_float_from_registers(SPEED)
         self.controller.speed_mpa_var.set(round(speed_value, 1))
 
+        self.update_back_button_state()
+

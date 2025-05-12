@@ -131,7 +131,10 @@ class App(tk.Tk):
         #self.slave.data_store["holding_registers"][3] = 3
         #self.slave.data_store["coils"][48] = 1
 
-        self.slave.start()
+        try:
+            self.slave.start()
+        except Exception as e:
+            print(e)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -143,7 +146,11 @@ class App(tk.Tk):
         for frame in self.frames.values():
             frame.event_generate("<<HideFrame>>")
 
-        self.slave.stop()
+        try:
+            self.slave.stop()
+        except Exception as e:
+            print(e)
+
         self.frames["ManualMode"].pressure_graph.cleanup() if hasattr(self.frames["ManualMode"],
                                                                       'pressure_graph') else None
         self.frames["StatMode"].pressure_graph.cleanup() if hasattr(self.frames["StatMode"],

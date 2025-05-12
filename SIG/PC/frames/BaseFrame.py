@@ -85,7 +85,7 @@ class BaseFrame(tk.Frame):
     def after_update(self):
         self.update_widgets()
         # Перезапускаем задачу и обновляем after_id
-        self.after_id = self.after(1000, self.after_update)
+        self.after_id = self.after(250, self.after_update)
 
     def update_widgets(self):
         print("base")
@@ -326,4 +326,14 @@ class BaseFrame(tk.Frame):
         entry.delete(0, tk.END)
         entry.insert(0, str(new_value))
         entry.config(state="readonly")
+
+    def update_back_button_state(self):
+        # Получаем значение из хранилища
+        work_value = self.controller.slave.data_store["holding_registers"][WORK]
+
+        # Устанавливаем состояние кнопки
+        if work_value == 1:
+            self.btn_settings.config(state="disabled")
+        else:
+            self.btn_settings.config(state="normal")
 

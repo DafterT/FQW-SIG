@@ -13,10 +13,10 @@ class CycleMode(BaseFrame):
         # label.pack(pady=20)
 
         # Кнопка возврата к настройкам
-        btn_settings = ttk.Button(self, text="Настройки\n  режима",
+        self.btn_settings = ttk.Button(self, text="Настройки\n  режима",
                                   command=lambda: controller.show_frame("CycleSettings"), style="Second.TButton")
 
-        btn_settings.place(x=10, y=10, width=120, height=50)
+        self.btn_settings.place(x=10, y=10, width=120, height=50)
 
         self.mn1_mpa = ttk.Label(self, style="Main.TLabel", text="0.0", textvariable=self.controller.mn1_mpa_var)
         self.mn1_mpa.place(x=128, y=96, width=76)
@@ -82,3 +82,5 @@ class CycleMode(BaseFrame):
 
         # Обновление циклов
         self.controller.number_of_cycles_var.set(self.controller.slave.data_store["holding_registers"][NUMBER_OF_CYCLES])
+
+        self.update_back_button_state()

@@ -100,6 +100,7 @@ class ManualMode(BaseFrame):
         self.controller.speed_mpa_var.set(round(speed_value, 1))
 
         self.refresh_entry(self.ent_frequency_percent, FREQ_MANUAL, is_float=False)
+        self.update_back_button_state()
 
 
 

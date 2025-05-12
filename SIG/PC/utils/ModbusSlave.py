@@ -28,7 +28,7 @@ class ModbusSlave:
     WRITE_MULTIPLE_COILS = 0x0F
     WRITE_MULTIPLE_REGISTERS = 0x10
 
-    def __init__(self, port='/dev/ttyS0', baudrate=9600, timeout=1, slave_id=1):
+    def __init__(self, port='/dev/ttyS0', baudrate=9600, timeout=1, slave_id=1, bytesize=8, parity='E', stopbits=1):
         """
         Инициализация Modbus Slave
 
@@ -37,6 +37,14 @@ class ModbusSlave:
         :param timeout: таймаут ожидания данных
         :param slave_id: идентификатор устройства (1-247)
         """
+        self.thread = None
+        self.port = port
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.bytesize = bytesize
+        self.parity = parity
+        self.stopbits = stopbits
+        self.serial = serial.Serial()
 
         self.slave_id = slave_id
         self.running = False
@@ -51,28 +59,93 @@ class ModbusSlave:
         # Инициализация CRC функции для RTU
         self.crc16 = mkCrcFun(0x18005, rev=True, initCrc=0xFFFF, xorOut=0x0000)
 
-
-        self.serial = serial.Serial(
-            port=port,
-            baudrate=baudrate,
-            bytesize=8,
-            parity='E',
-            stopbits=1,
-            timeout=timeout
-        )
-
         self.command_list = [self.WRITE_SINGLE_REGISTER, self.WRITE_MULTIPLE_REGISTERS]
 
     def start(self):
-        """Запуск сервера Modbus Slave"""
+        """Запуск сервера Modbus Slave с автоопределением порта"""
         self.running = True
 
-        self.thread = threading.Thread(target=self._rtu_loop)
+        if hasattr(self, 'serial') and self.serial.is_open:
+            self.serial.close()
 
-        self.thread.daemon = True
-        self.thread.start()
-        threading.Timer(5.0, self.read_delay).start()
+        # Попытка автоматического определения порта
+        if self._auto_detect_port():
+            self.thread = threading.Thread(target=self._rtu_loop)
+            self.thread.daemon = True
+            self.thread.start()
+            threading.Timer(5.0, self.read_delay).start()
+        else:
+            print("Не удалось найти подходящий COM-порт")
+            self.running = False
+            return
 
+    def _auto_detect_port(self, timeout=2.0):
+        """Автоматическое определение COM-порта"""
+        import serial.tools.list_ports
+
+        # Получаем список доступных портов
+        available_ports = serial.tools.list_ports.comports()
+        test_ports = [p.device for p in available_ports]
+
+        if not test_ports:
+            print("Нет доступных COM-портов")
+            return False
+
+        print(f"Доступные порты: {test_ports}")
+
+        for port in test_ports:
+            try:
+                print(f"Проверка порта {port}...")
+                ser = serial.Serial(
+                    port=port,
+                    baudrate=self.baudrate,
+                    bytesize=self.bytesize,
+                    parity=self.parity,
+                    stopbits=self.stopbits,
+                    timeout=self.timeout
+                )
+
+                # Проверяем, есть ли входящие данные
+                start_time = time.time()
+                data_received = False
+
+                while time.time() - start_time < timeout:
+                    if ser.in_waiting > 0:
+                        data = ser.read(ser.in_waiting)
+                        print(f"Получены данные на порту {port}: {data.hex()}")
+                        data_received = True
+                        break
+                    time.sleep(0.1)
+
+                if data_received:
+                    print(f"Выбран порт {port} (обнаружена активность)")
+                    self.port = port
+                    self.serial = ser
+                    return True
+                else:
+                    print(f"Порт {port} доступен, но активность не обнаружена")
+                    ser.close()
+
+            except serial.SerialException as e:
+                print(f"Ошибка при работе с портом {port}: {str(e)}")
+                continue
+
+        # Если ни один порт не подошел, пробуем использовать указанный в конфигурации
+        try:
+            print(f"Попытка использовать указанный порт {self.port}")
+            self.serial = serial.Serial(
+                port=self.port,
+                baudrate=self.baudrate,
+                bytesize=self.bytesize,
+                parity=self.parity,
+                stopbits=self.stopbits,
+                timeout=self.timeout
+            )
+            return True
+        except serial.SerialException as e:
+            print(f"Не удалось открыть указанный порт {self.port}: {str(e)}")
+
+            return False
 
     def read_delay(self):
         self.command_list.append(self.READ_HOLDING_REGISTERS)
@@ -85,7 +158,8 @@ class ModbusSlave:
             self.running = False
             self.thread.join()
 
-        self.serial.close()
+        if self.serial.is_open:
+            self.serial.close()
 
     def set_callback(self, function_code, callback):
         """

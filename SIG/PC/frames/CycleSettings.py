@@ -48,9 +48,23 @@ class CycleSettings(BaseFrame):
 
         self.ent_time_pause.place(x=454, y=254, width=112)
 
+
+        self.cycle_need = ttk.Entry(self, style="Main.TEntry", font=('Times New Roman', 24), justify="center",
+                                        state="readonly")
+        self.cycle_need.insert(0, "0")
+
+        self.cycle_need.bind("<Button-1>",
+                            lambda e: self.on_entry_click(e, CYCLES_NEED_CYCLE , min_val=TIME_WAIT_MIN_MAX[0],
+                                                          max_val=TIME_WAIT_MIN_MAX[1],
+                                                          entry=self.cycle_need,
+                                                          ask_float=False))
+
+        self.cycle_need.place(x=454, y=330, width=112)
+
+
         self.reset_cycle_set = ttk.Button(self, text="Сбросить", command=self.reset_cycle_set_func,
                                           style="NonActive.TButton")
-        self.reset_cycle_set.place(x=450, y=330, width=120, height=50)
+        self.reset_cycle_set.place(x=450, y=406, width=120, height=50)
 
         # Кнопки
         btn_back = ttk.Button(self, text="Выбор режима",
@@ -84,3 +98,4 @@ class CycleSettings(BaseFrame):
         self.refresh_entry(self.ent_pressure_end, PRESSURE_END_CYCLE, is_float=True)
         self.refresh_entry(self.ent_pressure_speed, PRESSURE_SPEED_CYCLE, is_float=True)
         self.refresh_entry(self.ent_time_pause, TIME_PAUSE_CYCLE, is_float=False)
+        self.refresh_entry(self.cycle_need, CYCLES_NEED_CYCLE, is_float=False)
