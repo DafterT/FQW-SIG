@@ -1,5 +1,3 @@
-import struct
-import time
 import tkinter as tk
 from tkinter import ttk
 
@@ -13,6 +11,7 @@ from frames.CycleMode import CycleMode
 from utils.ModbusSlave import ModbusSlave
 from utils.constants_for_regs import *
 import bidict
+from utils.math_functions import get_kgs
 
 
 
@@ -31,8 +30,6 @@ class App(tk.Tk):
             "CycleSettings": 8,
         })
 
-
-
         # Контейнер для всех фреймов
         self.container = tk.Frame(self)
         self.container.pack(side="top", fill="both", expand=True)
@@ -40,6 +37,7 @@ class App(tk.Tk):
         self.container.grid_columnconfigure(0, weight=1)
 
         self.after_id = None
+        self.plots_upd_id = None
 
         self.style = ttk.Style()
         self.style.theme_use('alt')
@@ -95,42 +93,19 @@ class App(tk.Tk):
 
         self.frames = {}
 
-        self.slave = ModbusSlave(port='COM3', baudrate=38400, slave_id=2)
+        self.slave = ModbusSlave(baudrate=38400, slave_id=2)
 
-        self.slave.set_callback(self.slave.READ_HOLDING_REGISTERS, self.read_holding_registers_callback)
-        self.slave.set_callback(self.slave.WRITE_MULTIPLE_REGISTERS, self.write_multiple_registers_callback)
-        self.slave.set_callback(self.slave.WRITE_SINGLE_REGISTER, self.write_multiple_registers_callback)
-
+        self.slave.set_callback(self.slave.WRITE_MULTIPLE_REGISTERS, self.write_registers_callback)
+        self.slave.set_callback(self.slave.WRITE_SINGLE_REGISTER, self.write_registers_callback)
 
         # Создаем все экраны
-
         for F in (MainMenu, StatSettings, CycleSettings, ManualMode, StatMode, CycleMode):
             frame = F(self.container, self)
             self.frames[F.__name__] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
         self.show_frame("MainMenu")
-
-
-        f = 34.2
-        f = hex(struct.unpack('<I', struct.pack('<f', f))[0])
-        self.slave.data_store["holding_registers"][PRESSURE_MN1] = int(f[6:10], 16)
-        self.slave.data_store["holding_registers"][PRESSURE_MN1 + 1] = int(f[2:6], 16)
-
-        f = 22.2
-        f = hex(struct.unpack('<I', struct.pack('<f', f))[0])
-        self.slave.data_store["holding_registers"][PRESSURE_MN2] = int(f[6:10], 16)
-        self.slave.data_store["holding_registers"][PRESSURE_MN2 + 1] = int(f[2:6], 16)
-
-        f = 5.2
-        f = hex(struct.unpack('<I', struct.pack('<f', f))[0])
-        self.slave.data_store["holding_registers"][SPEED] = int(f[6:10], 16)
-        self.slave.data_store["holding_registers"][SPEED + 1] = int(f[2:6], 16)
-
-        self.slave.data_store["holding_registers"][NUMBER_OF_CYCLES] = 2
-        #self.slave.data_store["holding_registers"][3] = 3
-        #self.slave.data_store["coils"][48] = 1
-
+        
         try:
             self.slave.start()
         except Exception as e:
@@ -138,11 +113,21 @@ class App(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        # print(self.slave._write_single_register(2, bytearray([0x06, 0x00, 0x04, 0x00, 0x01])).hex())
         self._center_window()
+        self.plots_upd_id = self.after(1000, self.plots_upd)
+
+
+    def plots_upd(self):
+        pressure = self.frames["ManualMode"].get_float_from_registers(PRESSURE_MN1)
+
+        self.frames["ManualMode"].pressure_graph.update_data(pressure)
+        self.frames["StatMode"].pressure_graph.update_data(pressure)
+        self.frames["CycleMode"].pressure_graph.update_data(pressure)
+        # UPD
+        self.plots_upd_id = self.after(1000, self.plots_upd)
+
 
     def on_close(self):
-
         for frame in self.frames.values():
             frame.event_generate("<<HideFrame>>")
 
@@ -159,21 +144,12 @@ class App(tk.Tk):
                                                                      'pressure_graph') else None
         self.destroy()
 
-    def read_holding_registers_callback(self, ssd):
-        # print(ssd)
-        self.frames["ManualMode"].update_button_state_by_register(START_AUTOMAT_N3_MANUAL_REG, START_MODE_MANUAL_REG)
-        self.frames["StatMode"].update_button_state_by_register(START_AUTOMAT_N3_STAT_REG, START_MODE_STAT_REG)
-        self.frames["CycleMode"].update_button_state_by_register(START_AUTOMAT_N3_CYCLE_REG, START_MODE_CYCLE_REG)
-
-    def write_multiple_registers_callback(self, ssd):
-        #print(ssd)
+    def write_registers_callback(self, request):
+        # Обновление экрана
         if self.slave.data_store["holding_registers"][CURRENT_FRAME_REG] != self.screen_numbers[self.current_frame.__class__.__name__]:
             self.show_frame(self.screen_numbers.inverse[self.slave.data_store["holding_registers"][CURRENT_FRAME_REG]])
-
-        print(self.slave.data_store["holding_registers"][CURRENT_FRAME_REG])
-        print(self.screen_numbers[self.current_frame.__class__.__name__])
-        print(self.screen_numbers.inverse[self.slave.data_store["holding_registers"][CURRENT_FRAME_REG]])
-
+            
+        # Обновление состояния кнопок
         self.frames["ManualMode"].update_button_state_by_register(START_AUTOMAT_N3_MANUAL_REG, START_MODE_MANUAL_REG)
         self.frames["StatMode"].update_button_state_by_register(START_AUTOMAT_N3_STAT_REG, START_MODE_STAT_REG)
         self.frames["CycleMode"].update_button_state_by_register(START_AUTOMAT_N3_CYCLE_REG, START_MODE_CYCLE_REG)
@@ -202,14 +178,13 @@ class App(tk.Tk):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
 
+    
     def update_kgs1(self, *args):
         mpa_value = self.mn1_mpa_var.get()
-        kgs_value = mpa_value * 10.19716
-        self.mn1_kgs_var.set(round(kgs_value, 1))  # Округляем до 1 знака после запятой
+        rounded_kgs = round(get_kgs(mpa_value), 1)
+        self.mn1_kgs_var.set(rounded_kgs)
 
     def update_kgs2(self, *args):
         mpa_value = self.mn2_mpa_var.get()
-        kgs_value = mpa_value * 10.19716
-        self.mn2_kgs_var.set(round(kgs_value, 1))  # Округляем до 1 знака после запятой
-
-
+        rounded_kgs = round(get_kgs(mpa_value), 1)
+        self.mn2_kgs_var.set(rounded_kgs)

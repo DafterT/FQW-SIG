@@ -8,8 +8,6 @@ class StatSettings(BaseFrame):
         super().__init__(parent, controller)
 
         # Здесь можно добавить настройки для статического режима
-        # label = ttk.Label(self.content, text="Настройки статического режима", font=('Helvetica', 14))
-        # label.pack(pady=20)
         self.set_background("imgs/stat_settings.png")
         # Кнопки
         btn_back = ttk.Button(self, text="Выбор\nрежима",
@@ -80,23 +78,7 @@ class StatSettings(BaseFrame):
 
         self.time_wait_2.place(x=454, y=414, width=112)
 
-    def get_ent_pressure_end(self):
-        return self.ent_pressure_end.get()
-
-    def get_ent_pressure_mid(self):
-        return self.ent_pressure_mid.get()
-
-    def get_ent_speed(self):
-        return self.ent_speed.get()
-
-    def get_time_wait_1(self):
-        return self.time_wait_1.get()
-
-    def get_time_wait_2(self):
-        return self.time_wait_2.get()
-
     def update_widgets(self):
-        print("Stat Sets")
         self.refresh_entry(self.ent_pressure_end, PRESSURE_END_STAT, is_float=True)
         self.refresh_entry(self.ent_pressure_mid, PRESSURE_MID_STAT, is_float=True)
         self.refresh_entry(self.ent_speed, PRESSURE_SPEED_STAT, is_float=True)

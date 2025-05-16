@@ -21,9 +21,4 @@ class MainMenu(BaseFrame):
         btn_manual.place(x=200, y=350, width=395, height=68)
 
     def update_widgets(self):
-        print("main menu")
-
-    def test(self):
-        self.controller.slave.data_store["holding_registers"][CURRENT_FRAME_REG] = 4
-
-        self.controller.write_multiple_registers_callback(0)
+        pass

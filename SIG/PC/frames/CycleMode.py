@@ -52,23 +52,7 @@ class CycleMode(BaseFrame):
         self.pressure_graph = PressureGraph(self)
 
 
-    def set_mn1_mpa(self, text):
-        self.mn1_mpa.configure(text=text)
-
-    def set_mn1_kgs(self, text):
-        self.mn1_kgs.configure(text=text)
-
-    def set_mn2_mpa(self, text):
-        self.mn2_mpa.configure(text=text)
-
-    def set_mn2_kgs(self, text):
-        self.mn2_kgs.configure(text=text)
-
-    def set_current_speed(self, text):
-        self.current_speed.configure(text=text)
-
     def update_widgets(self):
-        print("Cycle Mode")
         mn1_value = self.get_float_from_registers(PRESSURE_MN1)
         self.controller.mn1_mpa_var.set(round(mn1_value, 1))
 
@@ -83,4 +67,4 @@ class CycleMode(BaseFrame):
         # Обновление циклов
         self.controller.number_of_cycles_var.set(self.controller.slave.data_store["holding_registers"][NUMBER_OF_CYCLES])
 
-        self.update_back_button_state()
+        self.update_back_button_state(self.btn_settings)

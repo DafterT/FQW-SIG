@@ -9,8 +9,6 @@ class CycleSettings(BaseFrame):
         super().__init__(parent, controller)
         self.set_background('imgs/cycle_settings.png')
         # Здесь можно добавить настройки для циклического режима
-        # label = ttk.Label(self, text="Настройки циклического режима", font=('Helvetica', 14))
-        # label.pack(pady=20)
 
         self.ent_pressure_end = ttk.Entry(self, style="Main.TEntry", font=('Times New Roman', 24), justify="center",
                                         state="readonly")
@@ -76,25 +74,9 @@ class CycleSettings(BaseFrame):
         btn_start.place(x=601, y=12, width=120, height=50)
 
     def reset_cycle_set_func(self):
-        print("Сброс числа циклов")
         self.controller.slave.data_store["holding_registers"][DROP_NUMBER_OF_CYCLES] = 1
-        # self.after(200, self.reset_reset_cycle_set_func)
-
-    def reset_reset_cycle_set_func(self):
-        self.controller.slave.data_store["holding_registers"][DROP_NUMBER_OF_CYCLES] = 0
-
-
-    def get_ent_pressure_end(self):
-        return self.ent_pressure_end.get()
-
-    def get_ent_pressure_speed(self):
-        return self.ent_pressure_speed.get()
-
-    def get_ent_time_pause(self):
-        return self.ent_time_pause.get()
 
     def update_widgets(self):
-        print("Cycle Sets")
         self.refresh_entry(self.ent_pressure_end, PRESSURE_END_CYCLE, is_float=True)
         self.refresh_entry(self.ent_pressure_speed, PRESSURE_SPEED_CYCLE, is_float=True)
         self.refresh_entry(self.ent_time_pause, TIME_PAUSE_CYCLE, is_float=False)

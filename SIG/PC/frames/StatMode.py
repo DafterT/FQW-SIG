@@ -11,13 +11,10 @@ class StatMode(BaseFrame):
         self.set_background('imgs/stat_mode.png')
 
         # Кнопка возврата к настройкам
-        btn_settings = ttk.Button(self, text="Настройки\n  режима",
+        self.btn_settings = ttk.Button(self, text="Настройки\n  режима",
                                   command=lambda: controller.show_frame("StatSettings"), style="Second.TButton")
-        btn_settings.place(x=10, y=10, width=120, height=50)
-
-        # btn_test = ttk.Button(self, text="TECT", command=self.test, style="Second.TButton")
-        # btn_test.place(x=50, y=50, width = 120, height=50)
-
+        self.btn_settings.place(x=10, y=10, width=120, height=50)
+        
         self.mn1_mpa = ttk.Label(self, style="Main.TLabel", text="0.0", textvariable=self.controller.mn1_mpa_var)
         self.mn1_mpa.place(x=128, y=96, width=76)
 
@@ -44,26 +41,8 @@ class StatMode(BaseFrame):
         # Инициализация графика
         self.pressure_graph = PressureGraph(self)
 
-    def test(self):
-        print(self.controller.frames["StatSettings"].get_ent_pressure_end())
-
-    def set_mn1_mpa(self, text):
-        self.mn1_mpa.configure(text=text)
-
-    def set_mn1_kgs(self, text):
-        self.mn1_kgs.configure(text=text)
-
-    def set_mn2_mpa(self, text):
-        self.mn2_mpa.configure(text=text)
-
-    def set_mn2_kgs(self, text):
-        self.mn2_kgs.configure(text=text)
-
-    def set_current_speed(self, text):
-        self.current_speed.configure(text=text)
 
     def update_widgets(self):
-        print("Stat Mode")
         mn1_value = self.get_float_from_registers(PRESSURE_MN1)
         self.controller.mn1_mpa_var.set(round(mn1_value, 1))
 
@@ -75,5 +54,5 @@ class StatMode(BaseFrame):
         speed_value = self.get_float_from_registers(SPEED)
         self.controller.speed_mpa_var.set(round(speed_value, 1))
 
-        self.update_back_button_state()
+        self.update_back_button_state(self.btn_settings)
 

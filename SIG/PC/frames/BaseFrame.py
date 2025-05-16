@@ -5,7 +5,6 @@ from PIL import Image, ImageTk
 from tkinter import simpledialog
 from utils.constants_for_regs import *
 import sys
-import bidict
 
 
 class BaseFrame(tk.Frame):
@@ -24,22 +23,11 @@ class BaseFrame(tk.Frame):
         self.bg_image_raw = None
         self.bg_label = tk.Label(self)
         self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-        self.bg_label.bind("<Button-1>", self._print_click_coordinates)
-        self.bind("<Button-1>", self._print_click_coordinates)
-
-        # Основной контейнер для содержимого
-        # self.content = tk.Frame(self)
-        # self.content.place(relx=0.5, rely=0.5, anchor="center")
 
         # Привязка к изменению размера окна
         self.bind("<Configure>", self._resize_background)
 
         self.resources_dir = os.path.join(os.path.dirname(__file__), '..', 'imgs')
-
-        # Добавляем привязку горячей клавиши для дебага (Ctrl+Alt+Shift+D)
-        self.bind_all("<Control-Alt-Shift-D>", self.show_debug_window)
-        self.debug_window = None  # Ссылка на дебаг-окно
-
 
 
     def load_image(self, filename, size=None):
@@ -69,26 +57,9 @@ class BaseFrame(tk.Frame):
         if self.__class__.__name__ == "CycleSettings":
             self.controller.slave.data_store["holding_registers"][CURRENT_FRAME_REG] = 8
 
-        self.stop_after()  # Отменяем текущие задачи фрейма
-        # Запускаем новую задачу и сохраняем её ID
-        self.after_id = self.after(200, self.after_update)
-
     def on_hide_frame(self, event=None):
         """Вызывается при скрытии фрейма"""
-        self.stop_after()
-
-    def stop_after(self):
-        if self.after_id is not None:
-            self.after_cancel(self.after_id)
-            self.after_id = None
-
-    def after_update(self):
-        self.update_widgets()
-        # Перезапускаем задачу и обновляем after_id
-        self.after_id = self.after(250, self.after_update)
-
-    def update_widgets(self):
-        print("base")
+        pass
 
     def set_background(self, image_path):
         """Установка фонового изображения с автоматическим масштабированием"""
@@ -114,12 +85,7 @@ class BaseFrame(tk.Frame):
                 self.bg_image = ImageTk.PhotoImage(image)
                 self.bg_label.config(image=self.bg_image)
                 self.bg_label.lower()  # Отправляем фон на задний план
-
-    def _print_click_coordinates(self, event):
-        """Вывод координат клика в консоль"""
-        print(f"Клик на координатах: x={event.x}, y={event.y}")
-        print(f"Экранные координаты: x_root={event.x_root}, y_root={event.y_root}")
-
+                
     def ask_value_in_range(self, title, prompt, initial_value, min_value, max_value, ask_float=False):
         """Диалог ввода числа в заданном диапазоне."""
         while True:
@@ -165,115 +131,6 @@ class BaseFrame(tk.Frame):
             else:
                 self.controller.slave.data_store["holding_registers"][regs] = new_value
 
-    def show_debug_window(self, event=None):
-        """Отображение/скрытие дебаг-окна"""
-        if self.debug_window is None or not self.debug_window.winfo_exists():
-            self.create_debug_window()
-        else:
-            self.debug_window.destroy()
-            self.debug_window = None
-
-    def create_debug_window(self):
-        """Создание дебаг-окна с полезной информацией"""
-        self.debug_window = tk.Toplevel(self)
-        self.debug_window.title("Debug Information")
-        self.debug_window.geometry("600x800")
-
-        # Делаем окно поверх других
-        self.debug_window.attributes('-topmost', True)
-
-        # Создаем текстовое поле с прокруткой
-        text_frame = tk.Frame(self.debug_window)
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        scrollbar = tk.Scrollbar(text_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        debug_text = tk.Text(
-            text_frame,
-            yscrollcommand=scrollbar.set,
-            wrap=tk.WORD,
-            font=('Consolas', 10)
-        )
-        debug_text.pack(fill=tk.BOTH, expand=True)
-        scrollbar.config(command=debug_text.yview)
-
-        # Добавляем информацию в дебаг-окно
-        debug_info = self.get_debug_info()
-        debug_text.insert(tk.END, debug_info)
-        debug_text.config(state=tk.DISABLED)  # Делаем текст только для чтения
-
-        # Кнопка обновления
-        btn_frame = tk.Frame(self.debug_window)
-        btn_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        tk.Button(
-            btn_frame,
-            text="Refresh",
-            command=lambda: self.update_debug_info(debug_text)
-        ).pack(side=tk.LEFT)
-
-        tk.Button(
-            btn_frame,
-            text="Close",
-            command=self.debug_window.destroy
-        ).pack(side=tk.RIGHT)
-
-    def get_debug_info(self):
-        """Собирает отладочную информацию"""
-        info = [
-            "=== DEBUG INFORMATION ===",
-            f"Current frame: {self.__class__.__name__}",
-            f"Window size: {self.winfo_width()}x{self.winfo_height()}",
-            f"Controller: {self.controller.__class__.__name__}",
-            "\n=== Widgets Info ===",
-            f"Children widgets count: {len(self.winfo_children())}",
-            "\n=== System Info ===",
-            f"Tkinter version: {tk.Tcl().eval('info patchlevel')}",
-            f"Python version: {sys.version.split()[0]}",
-            "\n=== Custom Debug ===",
-            "Add your custom debug data here..."
-        ]
-
-        # Добавляем информацию о контроллере, если есть нужные атрибуты
-        if hasattr(self.controller, 'slave') and hasattr(self.controller.slave, 'data_store'):
-            info.append("\n=== Modbus Registers ===")
-            info.append(
-                f"CURRENT_FRAME_REG: {self.controller.slave.data_store['holding_registers'][CURRENT_FRAME_REG]}\n"
-                f"START_AUTOMAT_N3_MANUAL_REG: {self.controller.slave.data_store['holding_registers'][START_AUTOMAT_N3_MANUAL_REG]}\n"
-                f"START_MODE_MANUAL_REG: {self.controller.slave.data_store['holding_registers'][START_MODE_MANUAL_REG]}\n"
-                f"START_AUTOMAT_N3_STAT_REG: {self.controller.slave.data_store['holding_registers'][START_AUTOMAT_N3_STAT_REG]}\n"
-                f"START_MODE_STAT_REG: {self.controller.slave.data_store['holding_registers'][START_MODE_STAT_REG]}\n"
-                f"START_AUTOMAT_N3_CYCLE_REG: {self.controller.slave.data_store['holding_registers'][START_AUTOMAT_N3_CYCLE_REG]}\n"
-                f"START_MODE_CYCLE_REG: {self.controller.slave.data_store['holding_registers'][START_MODE_CYCLE_REG]}\n"
-                f"PRESSURE_MN1: {self.controller.slave.data_store['holding_registers'][PRESSURE_MN1], self.controller.slave.data_store['holding_registers'][PRESSURE_MN1 + 1]}\n"
-                f"PRESSURE_MN2: {self.controller.slave.data_store['holding_registers'][PRESSURE_MN2], self.controller.slave.data_store['holding_registers'][PRESSURE_MN2 + 1]}\n"
-                f"SPEED: {self.controller.slave.data_store['holding_registers'][SPEED], self.controller.slave.data_store['holding_registers'][SPEED + 1]}\n"
-                f"FREQ_MANUAL: {self.controller.slave.data_store['holding_registers'][FREQ_MANUAL]}\n"
-                f"PRESSURE_END_STAT: {self.controller.slave.data_store['holding_registers'][PRESSURE_END_STAT], self.controller.slave.data_store['holding_registers'][PRESSURE_END_STAT + 1]}\n"
-                f"PRESSURE_MID_STAT: {self.controller.slave.data_store['holding_registers'][PRESSURE_MID_STAT], self.controller.slave.data_store['holding_registers'][PRESSURE_MID_STAT + 1]}\n"
-                f"PRESSURE_SPEED_STAT: {self.controller.slave.data_store['holding_registers'][PRESSURE_SPEED_STAT], self.controller.slave.data_store['holding_registers'][PRESSURE_SPEED_STAT + 1]}\n"
-                f"TIME_WAIT_1_STAT: {self.controller.slave.data_store['holding_registers'][TIME_WAIT_1_STAT]}\n"
-                f"TIME_WAIT_2_STAT: {self.controller.slave.data_store['holding_registers'][TIME_WAIT_2_STAT]}\n"
-                f"PRESSURE_END_CYCLE: {self.controller.slave.data_store['holding_registers'][PRESSURE_END_CYCLE], self.controller.slave.data_store['holding_registers'][PRESSURE_END_CYCLE + 1]}\n"
-                f"PRESSURE_SPEED_CYCLE: {self.controller.slave.data_store['holding_registers'][PRESSURE_SPEED_CYCLE], self.controller.slave.data_store['holding_registers'][PRESSURE_SPEED_CYCLE + 1]}\n"
-                f"TIME_PAUSE_CYCLE: {self.controller.slave.data_store['holding_registers'][TIME_PAUSE_CYCLE]}\n"
-                f"NUMBER_OF_CYCLES: {self.controller.slave.data_store['holding_registers'][NUMBER_OF_CYCLES]}\n"
-                f"DROP_NUMBER_OF_CYCLES: {self.controller.slave.data_store['holding_registers'][DROP_NUMBER_OF_CYCLES]}\n"
-                f"WARNING_SCREENS: {self.controller.slave.data_store['holding_registers'][WARNING_SCREENS]}\n"
-                f"WARNING_BUTTON_BLOCK: {self.controller.slave.data_store['holding_registers'][WARNING_BUTTON_BLOCK]}\n"
-                f"WORK: {self.controller.slave.data_store['holding_registers'][WORK]}\n"
-            )
-
-        return "\n".join(info)
-
-    def update_debug_info(self, text_widget):
-        """Обновляет информацию в дебаг-окне"""
-        text_widget.config(state=tk.NORMAL)
-        text_widget.delete(1.0, tk.END)
-        text_widget.insert(tk.END, self.get_debug_info())
-        text_widget.config(state=tk.DISABLED)
-
     def get_float_from_registers(self, start_reg):
         """Получение float значения из двух 16-битных регистров"""
         try:
@@ -286,7 +143,6 @@ class BaseFrame(tk.Frame):
             return 0.0  # Значение по умолчанию при ошибке
 
     def start_mode_func(self, button, reg):
-        print("Старт режима")
         if button.cget("style") == "NonActive.TButton":
 
             if reg in [START_AUTOMAT_N3_CYCLE_REG, START_AUTOMAT_N3_MANUAL_REG, START_AUTOMAT_N3_STAT_REG]:
@@ -327,13 +183,13 @@ class BaseFrame(tk.Frame):
         entry.insert(0, str(new_value))
         entry.config(state="readonly")
 
-    def update_back_button_state(self):
+    def update_back_button_state(self, btn):
         # Получаем значение из хранилища
         work_value = self.controller.slave.data_store["holding_registers"][WORK]
 
         # Устанавливаем состояние кнопки
-        if work_value == 1:
-            self.btn_settings.config(state="disabled")
+        if work_value == 0:
+            btn.config(state="disabled")
         else:
-            self.btn_settings.config(state="normal")
+            btn.config(state="normal")
 

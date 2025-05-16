@@ -14,18 +14,11 @@ class ManualMode(BaseFrame):
         self.test_counter = 0
 
         # Основные элементы интерфейса
-        self._create_widgets()
-
-        # Инициализация графика
-        self.pressure_graph = PressureGraph(self)
-
-
-    def _create_widgets(self):
-        # Кнопка возврата
-        btn_back = ttk.Button(self, text="Выбор режима",
+         # Кнопка возврата
+        self.btn_settings = ttk.Button(self, text="Выбор режима",
                               command=lambda: self.controller.show_frame("MainMenu"),
                               style="Second.TButton")
-        btn_back.place(x=10, y=10, width=120, height=50)
+        self.btn_settings.place(x=10, y=10, width=120, height=50)
 
         # Метки и поля ввода
         self.mn1_mpa = ttk.Label(self, style="Main.TLabel", text="0.0", textvariable=self.controller.mn1_mpa_var)
@@ -67,27 +60,10 @@ class ManualMode(BaseFrame):
                                                                       entry=self.ent_frequency_percent,
                                                                       ask_float=False))
 
-        # Тестовая кнопка
-        # ttk.Button(self, text="ТЕСТ", command=self.test).place(x=630, y=360, width=120, height=50)
-
-    def test(self):
-        """Тестовый метод для проверки графика"""
-        self.pressure_graph.update_data(self.test_counter)
-        self.test_counter += 1
-
-    def set_mn1_mpa(self, text):
-        """Обновление значения давления и графика"""
-        self.mn1_mpa.configure(text=text)
-        try:
-            self.pressure_graph.update_data(float(text))
-        except ValueError:
-            pass
-
-    def set_current_speed(self, text):
-        self.current_speed.configure(text=text)
+        # Инициализация графика
+        self.pressure_graph = PressureGraph(self)
 
     def update_widgets(self):
-        print("Manual Mode")
         mn1_value = self.get_float_from_registers(PRESSURE_MN1)
         self.controller.mn1_mpa_var.set(round(mn1_value, 1))
 
@@ -100,7 +76,7 @@ class ManualMode(BaseFrame):
         self.controller.speed_mpa_var.set(round(speed_value, 1))
 
         self.refresh_entry(self.ent_frequency_percent, FREQ_MANUAL, is_float=False)
-        self.update_back_button_state()
+        self.update_back_button_state(self.btn_settings)
 
 
 
