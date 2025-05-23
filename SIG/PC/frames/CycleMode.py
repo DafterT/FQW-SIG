@@ -43,7 +43,12 @@ class CycleMode(BaseFrame):
         self.start_mode = ttk.Button(self, text="Запуск режима",
                                      command=lambda: self.start_mode_func(self.start_mode, START_MODE_CYCLE_REG),
                                      style="NonActive.TButton")
-        self.start_mode.place(x=630, y=360, width=120, height=50)
+        self.start_mode.place(x=630, y=330, width=120, height=50)
+        
+        self.start_valve = ttk.Button(self, text="Сброс давления",
+                                     command=lambda: self.start_mode_func(self.start_valve, START_MODE_CYCLE_REG),
+                                     style="NonActive.TButton")
+        self.start_valve.place(x=630, y=400, width=120, height=50)
 
         self.cycles = ttk.Label(self, style="Main.TLabel", text="0", textvariable=self.controller.number_of_cycles_var)
         self.cycles.place(x=655, y=97, width=68)
