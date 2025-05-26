@@ -1,11 +1,13 @@
-files = {
-    "file_dialog_acm":      [False, ""],    # АЦМ
-    "file_dialog_metrol":   [False, ""],    # Метрол
-    "file_dialog_sig":      [False, ""]     # Сиг
+"""Конфигурация путей к файлам и виджетам GUI."""
+
+from __future__ import annotations
+
+# Файл SIG: [выбран ли файл, путь]
+files: dict[str, list[bool | str]] = {
+    "file_dialog_sig": [False, ""],
 }
 
-file_to_text = {
-    "file_dialog_acm":      "path_text_acm",     # АЦМ
-    "file_dialog_metrol":   "path_text_metrol",  # Метрол
-    "file_dialog_sig":      "path_text_sig"      # Сиг
+# Маппинг «тег диалога -> тег текст‑виджета с путём»
+file_to_text: dict[str, str] = {
+    "file_dialog_sig": "path_text_sig",
 }
