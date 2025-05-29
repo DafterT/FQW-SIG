@@ -1,10 +1,4 @@
-"""Построение интерактивного графика давления по данным SIG.
-
-* Вход — CSV‑файл с колонками ``Date``, ``Time``, ``Pressure 2``.
-* Выход — интерактивный график **Plotly** (линия + маленькие маркеры).
-
-Смещение временной шкалы убрано: время берётся «как есть».
-"""
+"""Построение интерактивного графика давления по данным SIG"""
 
 from __future__ import annotations
 
@@ -19,18 +13,7 @@ pd.options.plotting.backend = "plotly"
 
 
 def sig_dataframe(sig_path: str) -> pd.DataFrame | None:
-    """Читает CSV SIG и возвращает подготовленный ``DataFrame``.
-
-    Parameters
-    ----------
-    sig_path
-        Полный путь к файлу SIG (должен заканчиваться на ``.csv``).
-
-    Returns
-    -------
-    pd.DataFrame | None
-        Подготовленные данные или ``None``, если файл не *.csv*.
-    """
+    """Читает CSV SIG и возвращает подготовленные данные"""
 
     if not sig_path.endswith(".csv"):
         return None
@@ -51,15 +34,7 @@ def sig_dataframe(sig_path: str) -> pd.DataFrame | None:
 
 
 def build_plot(sig: str = "", name: str = "") -> None:
-    """Строит интерактивный график давления.
-
-    Parameters
-    ----------
-    sig
-        Путь к CSV‑файлу SIG.
-    name
-        Название испытания (отображается в заголовке).
-    """
+    """Строит интерактивный график давления."""
 
     fig = go.Figure()
 
@@ -74,7 +49,17 @@ def build_plot(sig: str = "", name: str = "") -> None:
                 x=sig_df["Time"][::60],
                 y=sig_df["Pressure 2"][::60],
                 mode="lines+markers",
-                name="Давление в гидробаке (ПД100)",
+                name="Давление в гидробаке (ПД100) Д2",
+                line=dict(width=1),
+                marker=dict(size=4),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=sig_df["Time"][::60],
+                y=sig_df["Pressure 1"][::60],
+                mode="lines+markers",
+                name="Давление в гидробаке (ПД100) Д1",
                 line=dict(width=1),
                 marker=dict(size=4),
             )
@@ -103,7 +88,7 @@ def build_plot(sig: str = "", name: str = "") -> None:
         linewidth=1,
         linecolor="black",
         tickformat="%H:%M:%S \n%d-%m-%Y",
-        dtick=60 * 1000 * 5,  # 5 минут
+        dtick=60 * 1000 * 5,
         showgrid=True,
         gridwidth=1,
         gridcolor="black",
