@@ -1,155 +1,212 @@
-"""Графический интерфейс для выбора CSV‑файла SIG и построения графика"""
+"""
+Приложение SIG Plotter GUI.
 
-from __future__ import annotations
-
-import os
+Предоставляет интерфейс на основе Tkinter для выбора CSV-файла SIG,
+ввода названия испытания и построения графика давления с помощью функции plot_built.plot_sig_data.
+"""
 from pathlib import Path
+import tkinter as tk
+from tkinter import filedialog, font, ttk
+from PIL import Image, ImageTk
 
-import pandas as pd
-import dearpygui.dearpygui as dpg
-
-import config
 import plot_built
+from settings import *
 
-# Plotly — бэкенд для ``pandas.DataFrame.plot``
-pd.options.plotting.backend = "plotly"
+class PlaceholderEntry(ttk.Entry):
+    """Виджет ttk.Entry с функциональностью плейсхолдера."""
 
-# ------------------------------------------------------------------
-#                           CONSTANTS / PATHS
-# ------------------------------------------------------------------
-ROOT_DIR = Path(__file__).resolve().parent
-ASSETS_DIR = ROOT_DIR / "assets"
-LOGO_PATH = ASSETS_DIR / "logo.png"
-ICON_PATH = ASSETS_DIR / "icon.ico"
+    def __init__(self, master, placeholder: str, prefix: str, **kwargs) -> None:
+        super().__init__(master, **kwargs)
+        # Текст плейсхолдера и префикс для нового ввода
+        self.placeholder = placeholder
+        self.prefix = prefix
+        self.default_fg = kwargs.get('foreground', 'grey')
+        # Устанавливаем плейсхолдер
+        self.insert(0, self.placeholder)
+        self.configure(foreground=self.default_fg)
+        # Привязываем обработчики фокуса
+        self.bind('<FocusIn>', self._on_focus_in)
+        self.bind('<FocusOut>', self._on_focus_out)
 
-# ------------------------------------------------------------------
-#                        TEXTURE REGISTRATION
-# ------------------------------------------------------------------
+    def _on_focus_in(self, event: tk.Event) -> None:
+        """При получении фокуса очищаем плейсхолдер и вставляем префикс."""
+        if self.get() == self.placeholder:
+            self.delete(0, tk.END)
+            self.insert(0, self.prefix)
+            self.configure(foreground='black')
 
-def _register_textures() -> None:
-    """Регистрирует текстуры"""
+    def _on_focus_out(self, event: tk.Event) -> None:
+        """При потере фокуса восстанавливаем плейсхолдер, если поле пустое или содержит только префикс."""
+        text = self.get().strip()
+        if not text or text == self.prefix.strip():
+            self.delete(0, tk.END)
+            self.insert(0, self.placeholder)
+            self.configure(foreground=self.default_fg)
 
-    if LOGO_PATH.exists():
-        with dpg.texture_registry(show=False):
-            width, height, _, data = dpg.load_image(str(LOGO_PATH))
-            dpg.add_static_texture(width, height, data, tag="logo_tex")
+class SIGPlotterApp(tk.Tk):
+    """Главное окно приложения SIG Plotter."""
 
-# ------------------------------------------------------------------
-#                               CALLBACKS
-# ------------------------------------------------------------------
+    def __init__(self) -> None:
+        super().__init__()
+        # Выбранный путь к файлу
+        self.selected_file: str = ''
+        self._configure_window()
+        self._init_fonts()
+        self._init_styles()
+        self._build_ui()
 
+    def _configure_window(self) -> None:
+        """Настройка параметров главного окна."""
+        self.title(APP_TITLE)
+        self.geometry(WINDOW_SIZE)
+        self.resizable(False, False)
+        # Устанавливаем иконку, если файл существует
+        if ICON_PATH.exists():
+            try:
+                self.iconbitmap(str(ICON_PATH))
+            except tk.TclError:
+                pass
 
-def start_button() -> None:
-    """Читает параметры из GUI и строит график."""
-    plot_built.build_plot(
-        sig=config.files["file_dialog_sig"][1],
-        name=dpg.get_value("input_text_item_name"),
-    )
+    def _init_fonts(self) -> None:
+        """Инициализация пользовательских шрифтов."""
+        self.font_regular = font.Font(family='Arial', size=14)
+        self.font_header = font.Font(family='Century Gothic', size=24, weight='bold')
+        self.font_subheader = font.Font(family='Arial', size=18, weight='bold')
 
+    def _init_styles(self) -> None:
+        """Инициализация стилей ttk-виджетов."""
+        style = ttk.Style(self)
+        style.configure(
+            BUTTON_STYLE,
+            padding=(10, 6),
+            font=('Arial', 14),
+            relief='flat'
+        )
 
-def callback(sender: str, app_data: dict) -> None:
-    """Обработчик выбора файла в диалоге."""
-    selected_path = next(iter(app_data["selections"].values()))
-    dpg.set_value(config.file_to_text[sender], selected_path)
-    config.files[sender] = [True, selected_path]
+    def _build_ui(self) -> None:
+        """Сборка и размещение всех компонентов интерфейса."""
+        self._create_logo_section()
+        self._create_subtitle()
+        self._create_name_entry()
+        self._create_file_selector()
+        self._create_plot_button()
 
+    def _create_logo_section(self) -> None:
+        """Создание секции с логотипом и названием компании."""
+        container = tk.Frame(self)
+        container.pack(pady=(20, 10))
 
-def cancel_callback(sender: str) -> None:
-    """Сбрасывает путь, если пользователь нажал «Cancel»."""
+        # Отображаем логотип, если файл существует
+        if ICON_PATH.exists():
+            logo = Image.open(ICON_PATH)
+            logo.thumbnail((80, 80), Image.Resampling.LANCZOS)
+            self._logo_image = ImageTk.PhotoImage(logo)
+            ttk.Label(container, image=self._logo_image).grid(row=0, column=0)
 
-    dpg.set_value(config.file_to_text[sender], "Путь не указан")
-    config.files[sender] = [False, ""]
+        # Отображаем название компании
+        ttk.Label(
+            container,
+            text='АО «НПО «Прибор»',
+            font=self.font_header
+        ).grid(row=0, column=1, padx=(10, 0))
 
+    def _create_subtitle(self) -> None:
+        """Создание подзаголовка 'Генератор графиков'."""
+        ttk.Label(
+            self,
+            text='Генератор графиков',
+            font=self.font_subheader
+        ).pack(pady=(0, 15))
 
-def generate_screen_dpg() -> None:
-    """Создаёт все элементы интерфейса"""
+    def _create_name_entry(self) -> None:
+        """Создание поля ввода названия испытания с плейсхолдером."""
+        frame = tk.Frame(self)
+        frame.pack(padx=80, anchor='w', pady=(0, 15))
 
-    start_offset = 80  # Левый отступ для выравнивания подписей
+        ttk.Label(
+            frame,
+            text='Введите название испытания:',
+            font=self.font_regular
+        ).grid(row=0, column=0, sticky='w')
 
-    # ================== Регистрируем шрифты ==================
-    with dpg.font_registry():
-        with dpg.font(str(ASSETS_DIR / "arial.ttf"), 18) as font_main:
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
+        self.entry_name = PlaceholderEntry(
+            frame,
+            placeholder=PLACEHOLDER_TEXT,
+            prefix=DEFAULT_TEST_PREFIX,
+            width=25,
+            font=self.font_regular
+        )
+        self.entry_name.grid(row=0, column=1, padx=(10, 0))
 
-    # ================= Диалог выбора файла ==================
-    with dpg.file_dialog(
-        directory_selector=False,
-        show=False,
-        callback=callback,
-        tag="file_dialog_sig",
-        cancel_callback=cancel_callback,
-        width=700,
-        height=400,
-    ):
-        dpg.add_file_extension(".*")
+    def _create_file_selector(self) -> None:
+        """Создание секции выбора CSV-файла SIG."""
+        frame = tk.Frame(self)
+        frame.pack(padx=80, anchor='w', pady=(0, 15))
 
-    # ===================== Главное окно =====================
-    with dpg.window(
-        tag="Primary Window",
-        width=800,
-        height=600,
-        label="SIG",
-        no_resize=True,
-    ):
-        # ----------- Логотип слева сверху -----------
-        if LOGO_PATH.exists():
-            with dpg.group(horizontal=True):
-                dpg.add_image("logo_tex",
-                              pos=((800 - 399) // 2, 20))
-                dpg.add_spacer(width=20)
+        ttk.Label(
+            frame,
+            text='Укажите путь до данных SIG:',
+            font=self.font_regular
+        ).grid(row=0, column=0, sticky='w')
 
-        dpg.add_spacer(width=10, height=60)
+        # Кнопка выбора файла
+        self.btn_browse = ttk.Button(
+            frame,
+            text='Выбрать файл',
+            style=BUTTON_STYLE,
+            command=self._on_browse
+        )
+        self.btn_browse.grid(row=0, column=1, padx=(20, 0), sticky='w')
 
-        # ----------- Название изделия ---------------
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=start_offset)
-            dpg.add_text("Введите название испытуемого изделия: Испытание")
-            dpg.add_input_text(width=200, tag="input_text_item_name")
+        # Метка пути к выбранному файлу
+        self.label_path = ttk.Label(
+            frame,
+            text='Выбранный файл: Файл не выбран',
+            font=self.font_regular
+        )
+        self.label_path.grid(row=1, column=0, columnspan=2, pady=(15, 0), sticky='w')
 
-        # ------------- Выбор файла SIG --------------
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=start_offset)
-            dpg.add_text("Укажите путь до данных SIG")
-            dpg.add_spacer(width=25)
-            dpg.add_button(
-                label="Выбрать путь",
-                callback=lambda: dpg.show_item("file_dialog_sig"),
-            )
-            dpg.add_text("Путь не указан", tag="path_text_sig")
+    def _create_plot_button(self) -> None:
+        """Создание кнопки "Создать график" ниже остальных элементов."""
+        self.btn_plot = ttk.Button(
+            self,
+            text='Создать график',
+            style=BUTTON_STYLE,
+            command=self._on_plot,
+            state='disabled'
+        )
+        self.btn_plot.pack(pady=(15, 20))
 
-        dpg.add_spacer(width=1, height=50)
+    def _on_browse(self) -> None:
+        """Обработка выбора файла и обновление интерфейса."""
+        path = filedialog.askopenfilename(
+            parent=self,
+            title='Выберите файл SIG',
+            filetypes=[('CSV files', '*.csv')]
+        )
+        if path:
+            self.selected_file = path
+            self.label_path.config(text=f"Выбранный файл: {Path(path).name}")
+            self.btn_plot.state(['!disabled'])
+        else:
+            self.selected_file = ''
+            self.label_path.config(text='Выбранный файл: Файл не выбран')
+            self.btn_plot.state(['disabled'])
 
-        # ------------- Кнопка построения -------------
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=300)
-            dpg.add_button(label="Создать график", callback=start_button)
-
-        # --------- Делает окно главным и шрифт ---------
-        dpg.set_primary_window("Primary Window", True)
-        dpg.bind_font(font_main)
+    def _on_plot(self) -> None:
+        """Вызов функции построения графика из модуля plot_built."""
+        name = self.entry_name.get().strip()
+        # Если введено значение плейсхолдера, используем префикс
+        if name == PLACEHOLDER_TEXT:
+            name = DEFAULT_TEST_PREFIX.strip()
+        plot_built.plot_sig_data(sig_path=self.selected_file, test_name=name)
 
 
 def main() -> None:
-    dpg.create_context()
-    _register_textures()
-
-    dpg.create_viewport(
-        title="SIG Plotter",
-        width=800,
-        height=600,
-        resizable=False,          
-        small_icon=str(ICON_PATH),   # значок в левом-верхнем углу
-        large_icon=str(ICON_PATH)    # значок в панели задач / Alt-Tab
-    )
-    generate_screen_dpg()
-
-    dpg.setup_dearpygui()
-    dpg.show_viewport()
-    dpg.start_dearpygui()
-
-    dpg.destroy_context()
+    """Точка входа в приложение."""
+    app = SIGPlotterApp()
+    app.mainloop()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

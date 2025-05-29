@@ -1,94 +1,105 @@
-"""Построение интерактивного графика давления по данным SIG"""
+"""
+Модуль: refactored_sig_plot.py
+
+Построение интерактивного графика давления по данным SIG
+
+Этот модуль читает CSV-файл SIG и отображает интерактивный график давления
+с использованием Plotly.
+"""
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 import plotly.graph_objects as go
 
+from settings import *
+
+# Настройки pandas
 pd.options.plotting.backend = "plotly"
 
-# ------------------------------------------------------------------
-#                        DATA PRE‑PROCESSING
-# ------------------------------------------------------------------
 
+def _read_sig_csv(sig_path: Union[str, Path]) -> Optional[pd.DataFrame]:
+    """
+    Читает CSV SIG и возвращает DataFrame с объединённым столбцом Time.
 
-def sig_dataframe(sig_path: str) -> pd.DataFrame | None:
-    """Читает CSV SIG и возвращает подготовленные данные"""
+    Параметры
+    ----------
+    sig_path : str | Path
+        Путь к SIG CSV-файлу.
 
-    if not sig_path.endswith(".csv"):
+    Возвращает
+    ----------
+    pd.DataFrame | None
+        DataFrame с колонками Time, Pressure 1, Pressure 2 или None,
+        если расширение файла неверное.
+    """
+    path = Path(sig_path)
+    if path.suffix.lower() != CSV_SUFFIX:
         return None
 
-    sig_df = pd.read_csv(sig_path, delimiter=";", decimal=".")
-
-    # Объединяем столбцы даты и времени в единый тайм‑стемп
-    sig_df["Time"] = sig_df["Date"] + " " + sig_df["Time"]
-    sig_df.drop(columns=["Date"], inplace=True)
-    sig_df["Time"] = pd.to_datetime(sig_df["Time"], errors="coerce")
-
-    return sig_df
-
-
-# ------------------------------------------------------------------
-#                              PLOTTING
-# ------------------------------------------------------------------
+    df = pd.read_csv(path, delimiter=";", decimal=".")
+    # Объединяем Date и Time и преобразуем в datetime
+    df["Time"] = pd.to_datetime(
+        df["Date"] + " " + df["Time"], errors="coerce"
+    )
+    df.drop(columns=["Date"], inplace=True)
+    return df
 
 
-def build_plot(sig: str = "", name: str = "") -> None:
-    """Строит интерактивный график давления."""
+def _create_pressure_plot(df: pd.DataFrame, test_name: str) -> go.Figure:
+    """
+    Создаёт интерактивный график давления из DataFrame.
 
+    Параметры
+    ----------
+    df : pd.DataFrame
+        Данные SIG с колонкой Time и двумя давлением.
+    test_name : str
+        Название испытания (для заголовка).
+
+    Возвращает
+    ----------
+    go.Figure
+        Объект Figure для отображения.
+    """
     fig = go.Figure()
-
-    if sig:
-        sig_df = sig_dataframe(sig)
-        if sig_df is None:
-            raise ValueError("Файл SIG должен быть в формате .csv")
-
-        # Отрисовываем линию + маленькие маркеры (шаг = 1 минута)
+    sensors = [
+        ("Pressure 2", "Давление в гидробаке (ПД100) Д2"),
+        ("Pressure 1", "Давление в гидробаке (ПД100) Д1"),
+    ]
+    for column, label in sensors:
         fig.add_trace(
             go.Scatter(
-                x=sig_df["Time"][::60],
-                y=sig_df["Pressure 2"][::60],
+                x=df["Time"].iloc[::MARKER_INTERVAL],
+                y=df[column].iloc[::MARKER_INTERVAL],
                 mode="lines+markers",
-                name="Давление в гидробаке (ПД100) Д2",
-                line=dict(width=1),
-                marker=dict(size=4),
-            )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=sig_df["Time"][::60],
-                y=sig_df["Pressure 1"][::60],
-                mode="lines+markers",
-                name="Давление в гидробаке (ПД100) Д1",
+                name=label,
                 line=dict(width=1),
                 marker=dict(size=4),
             )
         )
 
-    # ============ Оформление =========
+    # Общие настройки оформления
     fig.update_layout(
-        showlegend=True,  
-        title=dict(
-            text=f"Испытание {name.replace('#', '№')}",
-            xanchor="center",
-            x=0.5,
-            y=0.9,
-        ),
+        showlegend=True,
+        title=dict(text=f"{test_name}", x=0.5, xanchor="center", y=0.95),
         xaxis_title="<b>Длительность испытания</b>",
         yaxis_title="<b>Давление, МПа</b>",
         plot_bgcolor="rgba(0, 0, 0, 0)",
         title_font_size=24,
         font_color="black",
-        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
+        legend=dict(orientation="h", y=-0.25, x=0.5, yanchor="top", xanchor="center"),
         font=dict(size=12),
     )
-
     fig.update_xaxes(
         showline=True,
         linewidth=1,
         linecolor="black",
         tickformat="%H:%M:%S \n%d-%m-%Y",
-        dtick=60 * 1000 * 5,
+        dtick=DEFAULT_X_DTICK_MS,
         showgrid=True,
         gridwidth=1,
         gridcolor="black",
@@ -105,5 +116,29 @@ def build_plot(sig: str = "", name: str = "") -> None:
         zerolinewidth=2,
         zerolinecolor="black",
     )
+    return fig
 
+
+def plot_sig_data(sig_path: Union[str, Path], test_name: str = "") -> None:
+    """
+    Загружает данные SIG из CSV и отображает график.
+
+    Параметры
+    ----------
+    sig_path : str | Path
+        Путь к SIG CSV-файлу.
+    test_name : str
+        Название испытания.
+
+    Raises
+    ------
+    ValueError
+        Если файл не CSV или его невозможно прочитать.
+    """
+    df = _read_sig_csv(sig_path)
+    if df is None:
+        raise ValueError(f"Файл '{sig_path}' должен иметь расширение {CSV_SUFFIX}")
+
+    safe_name = test_name.replace("#", "№")
+    fig = _create_pressure_plot(df, safe_name)
     fig.show()
